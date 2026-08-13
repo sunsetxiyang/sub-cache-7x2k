@@ -22,7 +22,8 @@ log-level: info
 EOF
 
 echo "proxies:" >> clash.yaml
-cat A/clash-proxies.txt B/clash-proxies.txt 2>/dev/null >> clash.yaml
+cat A/clash-proxies.txt 2>/dev/null >> clash.yaml || true
+cat B/clash-proxies.txt 2>/dev/null >> clash.yaml || true
 
 # 提取所有节点名（供 proxy-groups 使用）
 NAMES=$(grep -oP '^  - name: \K.*' clash.yaml || true)
