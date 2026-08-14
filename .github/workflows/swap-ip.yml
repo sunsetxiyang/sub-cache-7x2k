@@ -3,9 +3,16 @@ name: swap-ip
 on:
   schedule:
     - cron: "*/5 * * * *"      # 每 5 分钟检查邮箱
-  workflow_dispatch:            # 网页手动触发（Actions 页面点 Run）
+  workflow_dispatch:            # 网页手动触发，可选择目标机器
+    inputs:
+      target:
+        description: 换哪台机器的 IP
+        required: true
+        default: both
+        type: choice
+        options: [both, A, B]
   push:
-    paths: [".swap-trigger"]    # 上传/修改 .swap-trigger 文件即触发
+    paths: [".swap-trigger", ".swap-trigger-a", ".swap-trigger-b"]
 
 jobs:
   check-and-swap:
@@ -23,23 +30,32 @@ jobs:
           MAIL_USER: ${{ secrets.MAIL_USER }}
           MAIL_PASS: ${{ secrets.MAIL_PASS }}
         run: |
+          TARGET="both"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "手动触发，执行"
-            echo "TRIGGERED=1" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [ -f .swap-trigger ]; then
+            TARGET="${{ inputs.target }}"
+          elif [ -f .swap-trigger-a ]; then
+            echo "标记文件 A 触发，执行"
+            TARGET="A"
+          elif [ -f .swap-trigger-b ]; then
+            echo "标记文件 B 触发，执行"
+            TARGET="B"
+          elif [ -f .swap-trigger ]; then
             echo "标记文件触发，执行"
-            echo "TRIGGERED=1" >> "$GITHUB_OUTPUT"
-            exit 0
+            TARGET="both"
+          else
+            # schedule 触发：检查邮箱
+            if python3 scripts/check_mail.py; then
+              echo "邮件触发，执行"
+              TARGET="both"
+            else
+              echo "无触发条件，跳过"
+              exit 0
+            fi
           fi
-          # schedule 触发：检查邮箱
-          if python3 scripts/check_mail.py; then
-            echo "邮件触发，执行"
-            echo "TRIGGERED=1" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "无触发条件，跳过"
+          echo "TRIGGERED=1" >> "$GITHUB_OUTPUT"
+          echo "TARGET=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "目标机器: $TARGET"
 
       # 2. 认证 GCP（仅触发时执行）
       - name: Auth GCP
@@ -53,7 +69,7 @@ jobs:
 
       # 3. 换 A 机器 IP（config 名动态获取 + add 失败重试）
       - name: Swap IP (A)
-        if: steps.trigger.outputs.TRIGGERED == '1'
+        if: steps.trigger.outputs.TRIGGERED == '1' && (steps.trigger.outputs.TARGET == 'A' || steps.trigger.outputs.TARGET == 'both')
         env:
           INSTANCE: ${{ secrets.GCP_INSTANCE_A }}
           ZONE: ${{ secrets.GCP_ZONE_A }}
@@ -78,7 +94,7 @@ jobs:
       # 4. 换 B 机器 IP（可选，B 的 Secrets 填了才执行）
       #    注意：if 里不能引用 secrets，故放到 env + 步骤内判空
       - name: Swap IP (B) - optional
-        if: steps.trigger.outputs.TRIGGERED == '1'
+        if: steps.trigger.outputs.TRIGGERED == '1' && (steps.trigger.outputs.TARGET == 'B' || steps.trigger.outputs.TARGET == 'both')
         env:
           INSTANCE_B: ${{ secrets.GCP_INSTANCE_B }}
           ZONE_B: ${{ secrets.GCP_ZONE_B }}
@@ -108,7 +124,7 @@ jobs:
       - name: Clean trigger file
         if: steps.trigger.outputs.TRIGGERED == '1' && github.event_name == 'push'
         run: |
-          git rm -q .swap-trigger
+          git rm -q --ignore-unmatch .swap-trigger .swap-trigger-a .swap-trigger-b
           git config user.name "sub-merge"
           git config user.email "sub-merge@users.noreply.github.com"
           git commit -q -m "clear swap trigger [skip ci]"
