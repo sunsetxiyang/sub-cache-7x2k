@@ -1,0 +1,98 @@
+name: swap-ip
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"      # 每 5 分钟检查邮箱
+  workflow_dispatch:            # 网页手动触发（Actions 页面点 Run）
+  push:
+    paths: [".swap-trigger"]    # 上传/修改 .swap-trigger 文件即触发
+
+jobs:
+  check-and-swap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 1. 触发条件判定（三种触发，任一满足即继续）：
+      #    a) 邮箱有 "swap" 邮件（schedule 触发时检查）
+      #    b) 仓库存在 .swap-trigger 标记文件（push 触发）
+      #    c) 手动触发（workflow_dispatch，无条件执行）
+      - name: Check trigger condition
+        id: trigger
+        env:
+          MAIL_USER: ${{ secrets.MAIL_USER }}
+          MAIL_PASS: ${{ secrets.MAIL_PASS }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "手动触发，执行"
+            echo "TRIGGERED=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -f .swap-trigger ]; then
+            echo "标记文件触发，执行"
+            echo "TRIGGERED=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # schedule 触发：检查邮箱
+          if python3 .github/workflows/check_mail.py; then
+            echo "邮件触发，执行"
+            echo "TRIGGERED=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "无触发条件，跳过"
+
+      # 2. 认证 GCP（仅触发时执行）
+      - name: Auth GCP
+        if: steps.trigger.outputs.TRIGGERED == '1'
+        run: |
+          echo "$GCP_KEY" | base64 -d > /tmp/gcp-key.json
+          gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
+          gcloud config set project ${{ secrets.GCP_PROJECT }}
+        env:
+          GCP_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      # 3. 换 A 机器 IP
+      - name: Swap IP (A)
+        if: steps.trigger.outputs.TRIGGERED == '1'
+        run: |
+          gcloud compute instances delete-access-config "${{ secrets.GCP_INSTANCE_A }}" \
+            --zone "${{ secrets.GCP_ZONE_A }}" --access-config-name="external-nat-0" --quiet
+          sleep 5
+          gcloud compute instances add-access-config "${{ secrets.GCP_INSTANCE_A }}" \
+            --zone "${{ secrets.GCP_ZONE_A }}" --access-config-name="external-nat-0" --type=ONE_TO_ONE_NAT
+          echo "A 新 IP: $(gcloud compute instances describe "${{ secrets.GCP_INSTANCE_A }}" --zone "${{ secrets.GCP_ZONE_A }}" --format='value(networkInterfaces[0].accessConfigs[0].natIP)')"
+
+      # 4. 换 B 机器 IP（可选，B 的 Secrets 填了才执行）
+      - name: Swap IP (B) - optional
+        if: steps.trigger.outputs.TRIGGERED == '1' && secrets.GCP_INSTANCE_B != ''
+        run: |
+          gcloud compute instances delete-access-config "${{ secrets.GCP_INSTANCE_B }}" \
+            --zone "${{ secrets.GCP_ZONE_B }}" --access-config-name="external-nat-0" --quiet
+          sleep 5
+          gcloud compute instances add-access-config "${{ secrets.GCP_INSTANCE_B }}" \
+            --zone "${{ secrets.GCP_ZONE_B }}" --access-config-name="external-nat-0" --type=ONE_TO_ONE_NAT
+          echo "B 新 IP: $(gcloud compute instances describe "${{ secrets.GCP_INSTANCE_B }}" --zone "${{ secrets.GCP_ZONE_B }}" --format='value(networkInterfaces[0].accessConfigs[0].natIP)')"
+
+      # 5. 清理标记文件（换完后删除，防止重复触发；[skip ci] 避免再次触发）
+      - name: Clean trigger file
+        if: steps.trigger.outputs.TRIGGERED == '1' && github.event_name == 'push'
+        run: |
+          git rm -q .swap-trigger
+          git config user.name "sub-merge"
+          git config user.email "sub-merge@users.noreply.github.com"
+          git commit -q -m "clear swap trigger [skip ci]"
+          git push
+
+      # 6. 通知结果（无论成败都通知）
+      - name: Notify
+        if: always()
+        env:
+          SENDKEY: ${{ secrets.SENDKEY }}
+          INSTANCE_A: ${{ secrets.GCP_INSTANCE_A }}
+          ZONE_A: ${{ secrets.GCP_ZONE_A }}
+        run: |
+          IP_A=$(gcloud compute instances describe "$INSTANCE_A" --zone "$ZONE_A" \
+            --format='value(networkInterfaces[0].accessConfigs[0].natIP)' 2>/dev/null || echo "?")
+          curl -s --max-time 15 "https://sctapi.ftqq.com/$SENDKEY.send" \
+            --data-urlencode "title=🔄 GCP IP 已自动更换" \
+            --data-urlencode "desp=机器 A 新 IP: $IP_A%0A订阅将自动同步，客户端刷新即可恢复。" || true
