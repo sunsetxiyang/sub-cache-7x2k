@@ -10,9 +10,9 @@ on:
         required: true
         default: both
         type: choice
-        options: [both, A, B]
+        options: [both, us, tw]
   push:
-    paths: [".swap-trigger", ".swap-trigger-a", ".swap-trigger-b"]
+    paths: [".swap-trigger", ".swap-trigger-us", ".swap-trigger-tw"]
 
 jobs:
   check-and-swap:
@@ -34,12 +34,12 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "手动触发，执行"
             TARGET="${{ inputs.target }}"
-          elif [ -f .swap-trigger-a ]; then
-            echo "标记文件 A 触发，执行"
-            TARGET="A"
-          elif [ -f .swap-trigger-b ]; then
-            echo "标记文件 B 触发，执行"
-            TARGET="B"
+          elif [ -f .swap-trigger-us ]; then
+            echo "标记文件 us 触发，执行"
+            TARGET="us"
+          elif [ -f .swap-trigger-tw ]; then
+            echo "标记文件 tw 触发，执行"
+            TARGET="tw"
           elif [ -f .swap-trigger ]; then
             echo "标记文件触发，执行"
             TARGET="both"
@@ -68,8 +68,8 @@ jobs:
           GCP_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
 
       # 3. 换 A 机器 IP（config 名动态获取 + add 失败重试）
-      - name: Swap IP (A)
-        if: steps.trigger.outputs.TRIGGERED == '1' && (steps.trigger.outputs.TARGET == 'A' || steps.trigger.outputs.TARGET == 'both')
+      - name: Swap IP (us-west1)
+        if: steps.trigger.outputs.TRIGGERED == '1' && (steps.trigger.outputs.TARGET == 'us' || steps.trigger.outputs.TARGET == 'both')
         env:
           INSTANCE: ${{ secrets.GCP_INSTANCE_A }}
           ZONE: ${{ secrets.GCP_ZONE_A }}
@@ -93,8 +93,8 @@ jobs:
 
       # 4. 换 B 机器 IP（可选，B 的 Secrets 填了才执行）
       #    注意：if 里不能引用 secrets，故放到 env + 步骤内判空
-      - name: Swap IP (B) - optional
-        if: steps.trigger.outputs.TRIGGERED == '1' && (steps.trigger.outputs.TARGET == 'B' || steps.trigger.outputs.TARGET == 'both')
+      - name: Swap IP (asia-east1) - optional
+        if: steps.trigger.outputs.TRIGGERED == '1' && (steps.trigger.outputs.TARGET == 'tw' || steps.trigger.outputs.TARGET == 'both')
         env:
           INSTANCE_B: ${{ secrets.GCP_INSTANCE_B }}
           ZONE_B: ${{ secrets.GCP_ZONE_B }}
@@ -124,7 +124,7 @@ jobs:
       - name: Clean trigger file
         if: steps.trigger.outputs.TRIGGERED == '1' && github.event_name == 'push'
         run: |
-          git rm -q --ignore-unmatch .swap-trigger .swap-trigger-a .swap-trigger-b
+          git rm -q --ignore-unmatch .swap-trigger .swap-trigger-us .swap-trigger-tw
           git config user.name "sub-merge"
           git config user.email "sub-merge@users.noreply.github.com"
           git commit -q -m "clear swap trigger [skip ci]"
