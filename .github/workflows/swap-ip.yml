@@ -51,16 +51,29 @@ jobs:
         env:
           GCP_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
 
-      # 3. 换 A 机器 IP
+      # 3. 换 A 机器 IP（config 名动态获取 + add 失败重试）
       - name: Swap IP (A)
         if: steps.trigger.outputs.TRIGGERED == '1'
+        env:
+          INSTANCE: ${{ secrets.GCP_INSTANCE_A }}
+          ZONE: ${{ secrets.GCP_ZONE_A }}
         run: |
-          gcloud compute instances delete-access-config "${{ secrets.GCP_INSTANCE_A }}" \
-            --zone "${{ secrets.GCP_ZONE_A }}" --access-config-name="external-nat-0" --quiet
-          sleep 5
-          gcloud compute instances add-access-config "${{ secrets.GCP_INSTANCE_A }}" \
-            --zone "${{ secrets.GCP_ZONE_A }}" --access-config-name="external-nat-0" --type=ONE_TO_ONE_NAT
-          echo "A 新 IP: $(gcloud compute instances describe "${{ secrets.GCP_INSTANCE_A }}" --zone "${{ secrets.GCP_ZONE_A }}" --format='value(networkInterfaces[0].accessConfigs[0].natIP)')"
+          CONFIG_NAME=$(gcloud compute instances describe "$INSTANCE" --zone "$ZONE" \
+            --format='value(networkInterfaces[0].accessConfigs[0].name)')
+          CONFIG_NAME=${CONFIG_NAME:-External NAT}
+          echo "access config 名: $CONFIG_NAME"
+          gcloud compute instances delete-access-config "$INSTANCE" \
+            --zone "$ZONE" --access-config-name="$CONFIG_NAME" --quiet
+          sleep 10
+          for i in 1 2 3; do
+            if gcloud compute instances add-access-config "$INSTANCE" \
+                --zone "$ZONE" --access-config-name="$CONFIG_NAME"; then
+              break
+            fi
+            echo "add 重试 $i/3"
+            sleep 10
+          done
+          echo "A 新 IP: $(gcloud compute instances describe "$INSTANCE" --zone "$ZONE" --format='value(networkInterfaces[0].accessConfigs[0].natIP)')"
 
       # 4. 换 B 机器 IP（可选，B 的 Secrets 填了才执行）
       #    注意：if 里不能引用 secrets，故放到 env + 步骤内判空
@@ -74,11 +87,21 @@ jobs:
             echo "B 机器未配置，跳过"
             exit 0
           fi
+          CONFIG_NAME=$(gcloud compute instances describe "$INSTANCE_B" --zone "$ZONE_B" \
+            --format='value(networkInterfaces[0].accessConfigs[0].name)')
+          CONFIG_NAME=${CONFIG_NAME:-External NAT}
+          echo "B access config 名: $CONFIG_NAME"
           gcloud compute instances delete-access-config "$INSTANCE_B" \
-            --zone "$ZONE_B" --access-config-name="external-nat-0" --quiet
-          sleep 5
-          gcloud compute instances add-access-config "$INSTANCE_B" \
-            --zone "$ZONE_B" --access-config-name="external-nat-0" --type=ONE_TO_ONE_NAT
+            --zone "$ZONE_B" --access-config-name="$CONFIG_NAME" --quiet
+          sleep 10
+          for i in 1 2 3; do
+            if gcloud compute instances add-access-config "$INSTANCE_B" \
+                --zone "$ZONE_B" --access-config-name="$CONFIG_NAME"; then
+              break
+            fi
+            echo "add 重试 $i/3"
+            sleep 10
+          done
           echo "B 新 IP: $(gcloud compute instances describe "$INSTANCE_B" --zone "$ZONE_B" --format='value(networkInterfaces[0].accessConfigs[0].natIP)')"
 
       # 5. 清理标记文件（换完后删除，防止重复触发；[skip ci] 避免再次触发）
