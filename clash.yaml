@@ -3,10 +3,9 @@ allow-lan: false
 mode: rule
 log-level: info
 
-proxies:
   - name: sing-box-vless
     type: vless
-    server: 34.3.101.66
+    server: 34.3.106.27
     port: 443
     uuid: fdd162f9-1393-4229-a31c-ec5263b918ad
     network: tcp
@@ -19,9 +18,50 @@ proxies:
       public-key: x1ql3ShHUiyfMiA9_49FPY7ZV5Oqw2LcZPI9CUIlQQg
   - name: sing-box-hysteria2
     type: hysteria2
-    server: 34.3.101.66
+    server: 34.3.106.27
     port: 443
     password: fdd162f9-1393-4229-a31c-ec5263b918ad
+    sni: www.microsoft.com
+    skip-cert-verify: true
+proxies:
+  - name: sing-box-vless
+    type: vless
+    server: 34.3.106.27
+    port: 443
+    uuid: fdd162f9-1393-4229-a31c-ec5263b918ad
+    network: tcp
+    tls: true
+    udp: true
+    flow: xtls-rprx-vision
+    servername: dl.google.com
+    client-fingerprint: chrome
+    reality-opts:
+      public-key: x1ql3ShHUiyfMiA9_49FPY7ZV5Oqw2LcZPI9CUIlQQg
+  - name: sing-box-hysteria2
+    type: hysteria2
+    server: 34.3.106.27
+    port: 443
+    password: fdd162f9-1393-4229-a31c-ec5263b918ad
+    sni: www.microsoft.com
+    skip-cert-verify: true
+  - name: peer-vless
+    type: vless
+    server: 35.206.216.17
+    port: 443
+    uuid: 58543a42-b17d-4cc8-8b54-b5465ebaae89
+    network: tcp
+    tls: true
+    udp: true
+    flow: xtls-rprx-vision
+    servername: dl.google.com
+    client-fingerprint: chrome
+    reality-opts:
+      public-key: IKnqw4_9CFdnsaLq4kMNhNzub69F3rzCowYNiXbWgTU
+  - name: peer-hysteria2
+    type: hysteria2
+    server: 35.206.216.17
+    port: 443
+    password: 23574d8b86d604e6f4ff3dc5
     sni: www.microsoft.com
     skip-cert-verify: true
   - name: peer-vless
@@ -51,6 +91,10 @@ proxy-groups:
     proxies:
       - sing-box-vless
       - sing-box-hysteria2
+      - sing-box-vless
+      - sing-box-hysteria2
+      - peer-vless
+      - peer-hysteria2
       - peer-vless
       - peer-hysteria2
       - AUTO
@@ -61,6 +105,42 @@ proxy-groups:
     proxies:
       - sing-box-vless
       - sing-box-hysteria2
+      - sing-box-vless
+      - sing-box-hysteria2
+      - peer-vless
+      - peer-hysteria2
+      - peer-vless
+      - peer-hysteria2
+
+
+rules:
+  - GEOIP,CN,DIRECT
+  - MATCH,PROXY
+
+proxy-groups:
+  - name: PROXY
+    type: select
+    proxies:
+      - sing-box-vless
+      - sing-box-hysteria2
+      - sing-box-vless
+      - sing-box-hysteria2
+      - peer-vless
+      - peer-hysteria2
+      - peer-vless
+      - peer-hysteria2
+      - AUTO
+  - name: AUTO
+    type: url-test
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+    proxies:
+      - sing-box-vless
+      - sing-box-hysteria2
+      - sing-box-vless
+      - sing-box-hysteria2
+      - peer-vless
+      - peer-hysteria2
       - peer-vless
       - peer-hysteria2
 
