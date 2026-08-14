@@ -1,6 +1,6 @@
   - name: sing-box-vless
     type: vless
-    server: 34.3.106.27
+    server: 34.3.101.66
     port: 443
     uuid: fdd162f9-1393-4229-a31c-ec5263b918ad
     network: tcp
@@ -13,7 +13,7 @@
       public-key: x1ql3ShHUiyfMiA9_49FPY7ZV5Oqw2LcZPI9CUIlQQg
   - name: sing-box-hysteria2
     type: hysteria2
-    server: 34.3.106.27
+    server: 34.3.101.66
     port: 443
     password: fdd162f9-1393-4229-a31c-ec5263b918ad
     sni: www.microsoft.com
