@@ -34,7 +34,7 @@ jobs:
             exit 0
           fi
           # schedule 触发：检查邮箱
-          if python3 .github/workflows/check_mail.py; then
+          if python3 scripts/check_mail.py; then
             echo "邮件触发，执行"
             echo "TRIGGERED=1" >> "$GITHUB_OUTPUT"
             exit 0
@@ -63,15 +63,23 @@ jobs:
           echo "A 新 IP: $(gcloud compute instances describe "${{ secrets.GCP_INSTANCE_A }}" --zone "${{ secrets.GCP_ZONE_A }}" --format='value(networkInterfaces[0].accessConfigs[0].natIP)')"
 
       # 4. 换 B 机器 IP（可选，B 的 Secrets 填了才执行）
+      #    注意：if 里不能引用 secrets，故放到 env + 步骤内判空
       - name: Swap IP (B) - optional
-        if: steps.trigger.outputs.TRIGGERED == '1' && secrets.GCP_INSTANCE_B != ''
+        if: steps.trigger.outputs.TRIGGERED == '1'
+        env:
+          INSTANCE_B: ${{ secrets.GCP_INSTANCE_B }}
+          ZONE_B: ${{ secrets.GCP_ZONE_B }}
         run: |
-          gcloud compute instances delete-access-config "${{ secrets.GCP_INSTANCE_B }}" \
-            --zone "${{ secrets.GCP_ZONE_B }}" --access-config-name="external-nat-0" --quiet
+          if [ -z "$INSTANCE_B" ]; then
+            echo "B 机器未配置，跳过"
+            exit 0
+          fi
+          gcloud compute instances delete-access-config "$INSTANCE_B" \
+            --zone "$ZONE_B" --access-config-name="external-nat-0" --quiet
           sleep 5
-          gcloud compute instances add-access-config "${{ secrets.GCP_INSTANCE_B }}" \
-            --zone "${{ secrets.GCP_ZONE_B }}" --access-config-name="external-nat-0" --type=ONE_TO_ONE_NAT
-          echo "B 新 IP: $(gcloud compute instances describe "${{ secrets.GCP_INSTANCE_B }}" --zone "${{ secrets.GCP_ZONE_B }}" --format='value(networkInterfaces[0].accessConfigs[0].natIP)')"
+          gcloud compute instances add-access-config "$INSTANCE_B" \
+            --zone "$ZONE_B" --access-config-name="external-nat-0" --type=ONE_TO_ONE_NAT
+          echo "B 新 IP: $(gcloud compute instances describe "$INSTANCE_B" --zone "$ZONE_B" --format='value(networkInterfaces[0].accessConfigs[0].natIP)')"
 
       # 5. 清理标记文件（换完后删除，防止重复触发；[skip ci] 避免再次触发）
       - name: Clean trigger file
