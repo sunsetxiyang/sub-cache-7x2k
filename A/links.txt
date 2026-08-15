@@ -1,2 +1,2 @@
-vless://fdd162f9-1393-4229-a31c-ec5263b918ad@35.212.208.97:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=dl.google.com&fp=chrome&pbk=x1ql3ShHUiyfMiA9_49FPY7ZV5Oqw2LcZPI9CUIlQQg&sid=&type=tcp&headerType=none#sing-box-vless
-hysteria2://fdd162f9-1393-4229-a31c-ec5263b918ad@35.212.208.97:443?sni=www.microsoft.com&insecure=1#sing-box-hysteria2
+vless://fdd162f9-1393-4229-a31c-ec5263b918ad@34.3.106.27:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=dl.google.com&fp=chrome&pbk=x1ql3ShHUiyfMiA9_49FPY7ZV5Oqw2LcZPI9CUIlQQg&sid=&type=tcp&headerType=none#sing-box-vless
+hysteria2://fdd162f9-1393-4229-a31c-ec5263b918ad@34.3.106.27:443?sni=www.microsoft.com&insecure=1#sing-box-hysteria2
