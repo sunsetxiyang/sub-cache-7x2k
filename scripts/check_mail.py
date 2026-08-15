@@ -6,7 +6,7 @@ import imaplib
 import sys
 import os
 
-MAIL_HOST = "outlook.office365.com"
+MAIL_HOST = "imap.qq.com"
 MAIL_USER = os.environ.get("MAIL_USER", "")
 MAIL_PASS = os.environ.get("MAIL_PASS", "")
 KEYWORD = "swap"
