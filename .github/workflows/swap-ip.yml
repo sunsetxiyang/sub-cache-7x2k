@@ -50,14 +50,14 @@ jobs:
             echo "标记文件触发"
             TARGET="both"
           else
-            # schedule 触发：检查邮箱
-            if python3 scripts/check_mail.py; then
-              echo "邮件触发"
-              TARGET="both"
-            else
-              echo "无触发条件，跳过"
-              exit 0
-            fi
+            # schedule 触发：检查邮箱（check_mail.py 输出 TARGET=xx 区分目标）
+            MAIL_OUT=$(python3 scripts/check_mail.py 2>/dev/null || true)
+            case "$MAIL_OUT" in
+              *"TARGET=us"*)  echo "邮件触发 (us)"; TARGET="us" ;;
+              *"TARGET=tw"*)  echo "邮件触发 (tw)"; TARGET="tw" ;;
+              *"TARGET=both"*) echo "邮件触发 (both)"; TARGET="both" ;;
+              *) echo "无触发条件，跳过"; exit 0 ;;
+            esac
           fi
           echo "TRIGGERED=1" >> "$GITHUB_OUTPUT"
           echo "TARGET=$TARGET" >> "$GITHUB_OUTPUT"
