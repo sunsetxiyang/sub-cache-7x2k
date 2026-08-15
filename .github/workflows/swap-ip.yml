@@ -211,7 +211,8 @@ jobs:
 
       # 9. 通知结果（无论成败都通知）
       - name: Notify
-        if: always()
+        # 只在真正执行操作时通知（schedule 空跑不打扰）
+        if: steps.trigger.outputs.TRIGGERED == '1'
         env:
           SENDKEY: ${{ secrets.SENDKEY }}
           INSTANCE_A: ${{ secrets.GCP_INSTANCE_A }}
