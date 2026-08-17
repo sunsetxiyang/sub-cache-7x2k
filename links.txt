@@ -1,4 +1,4 @@
 vless://fdd162f9-1393-4229-a31c-ec5263b918ad@34.4.111.55:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=dl.google.com&fp=chrome&pbk=x1ql3ShHUiyfMiA9_49FPY7ZV5Oqw2LcZPI9CUIlQQg&sid=&type=tcp&headerType=none#sing-box-vless
 hysteria2://fdd162f9-1393-4229-a31c-ec5263b918ad@34.4.111.55:443?sni=www.microsoft.com&insecure=1#sing-box-hysteria2
-vless://58543a42-b17d-4cc8-8b54-b5465ebaae89@35.206.241.62:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=dl.google.com&fp=chrome&pbk=IKnqw4_9CFdnsaLq4kMNhNzub69F3rzCowYNiXbWgTU&sid=ba50b4f2&type=tcp&headerType=none#peer-vless
-hysteria2://23574d8b86d604e6f4ff3dc5@35.206.241.62:443?sni=www.microsoft.com&insecure=1#peer-hysteria2
+vless://58543a42-b17d-4cc8-8b54-b5465ebaae89@35.206.223.51:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=dl.google.com&fp=chrome&pbk=IKnqw4_9CFdnsaLq4kMNhNzub69F3rzCowYNiXbWgTU&sid=ba50b4f2&type=tcp&headerType=none#peer-vless
+hysteria2://23574d8b86d604e6f4ff3dc5@35.206.223.51:443?sni=www.microsoft.com&insecure=1#peer-hysteria2
