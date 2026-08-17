@@ -1,6 +1,6 @@
   - name: peer-vless
     type: vless
-    server: 35.206.223.51
+    server: 35.206.216.17
     port: 443
     uuid: 58543a42-b17d-4cc8-8b54-b5465ebaae89
     network: tcp
@@ -13,7 +13,7 @@
       public-key: IKnqw4_9CFdnsaLq4kMNhNzub69F3rzCowYNiXbWgTU
   - name: peer-hysteria2
     type: hysteria2
-    server: 35.206.223.51
+    server: 35.206.216.17
     port: 443
     password: 23574d8b86d604e6f4ff3dc5
     sni: www.microsoft.com
