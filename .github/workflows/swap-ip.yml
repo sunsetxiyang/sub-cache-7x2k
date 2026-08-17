@@ -10,9 +10,9 @@ on:
         required: true
         default: both
         type: choice
-        options: [both, us, tw, static-us, static-tw, cleanup]
+        options: [both, us, tw, static-us, static-tw, cleanup, stop-tw, start-tw]
   push:
-    paths: [".swap-trigger", ".swap-trigger-us", ".swap-trigger-tw", ".swap-trigger-static-us", ".swap-trigger-static-tw", ".swap-trigger-cleanup"]
+    paths: [".swap-trigger", ".swap-trigger-us", ".swap-trigger-tw", ".swap-trigger-static-us", ".swap-trigger-static-tw", ".swap-trigger-cleanup", ".swap-trigger-stop-tw", ".swap-trigger-start-tw"]
 
 jobs:
   check-and-swap:
@@ -40,6 +40,12 @@ jobs:
           elif [ -f .swap-trigger-static-tw ]; then
             echo "标记文件 static-tw 触发"
             TARGET="static-tw"
+          elif [ -f .swap-trigger-stop-tw ]; then
+            echo "标记文件 stop-tw 触发"
+            TARGET="stop-tw"
+          elif [ -f .swap-trigger-start-tw ]; then
+            echo "标记文件 start-tw 触发"
+            TARGET="start-tw"
           elif [ -f .swap-trigger-us ]; then
             echo "标记文件 us 触发"
             TARGET="us"
@@ -185,7 +191,29 @@ jobs:
           done
           echo "tw 当前 IP: $(gcloud compute instances describe "$INSTANCE" --zone "$ZONE" --format='value(networkInterfaces[0].accessConfigs[0].natIP)')"
 
-      # 7. 清理所有空闲静态 IP（RESERVED 未绑定；IN_USE 不动）
+      # 7. 停止 tw 机器（省费用，需要时再启动）
+      - name: Stop tw instance
+        if: steps.trigger.outputs.TRIGGERED == '1' && steps.trigger.outputs.TARGET == 'stop-tw'
+        env:
+          INSTANCE: ${{ secrets.GCP_INSTANCE_B }}
+          ZONE: ${{ secrets.GCP_ZONE_B }}
+        run: |
+          gcloud compute instances stop "$INSTANCE" --zone "$ZONE" --quiet
+          echo "tw 已停止"
+
+      # 8. 启动 tw 机器（IP 会变，订阅自动同步）
+      - name: Start tw instance
+        if: steps.trigger.outputs.TRIGGERED == '1' && steps.trigger.outputs.TARGET == 'start-tw'
+        env:
+          INSTANCE: ${{ secrets.GCP_INSTANCE_B }}
+          ZONE: ${{ secrets.GCP_ZONE_B }}
+        run: |
+          gcloud compute instances start "$INSTANCE" --zone "$ZONE" --quiet
+          echo "tw 已启动，等待分配 IP..."
+          sleep 15
+          echo "tw 新 IP: $(gcloud compute instances describe "$INSTANCE" --zone "$ZONE" --format='value(networkInterfaces[0].accessConfigs[0].natIP)')"
+
+      # 9. 清理所有空闲静态 IP（RESERVED 未绑定；IN_USE 不动）
       - name: Cleanup idle static IPs
         if: steps.trigger.outputs.TRIGGERED == '1' && steps.trigger.outputs.TARGET == 'cleanup'
         run: |
@@ -198,18 +226,19 @@ jobs:
           done < <(gcloud compute addresses list --filter="status=RESERVED" --format="value(name,region.basename())")
           echo "已清理 $count 个空闲静态 IP"
 
-      # 8. 清理标记文件（换完后删除，防止重复触发；[skip ci] 避免再次触发）
+      # 10. 清理标记文件（换完后删除，防止重复触发；[skip ci] 避免再次触发）
       - name: Clean trigger file
         if: steps.trigger.outputs.TRIGGERED == '1' && github.event_name == 'push'
         run: |
           git rm -q --ignore-unmatch .swap-trigger .swap-trigger-us .swap-trigger-tw \
-            .swap-trigger-static-us .swap-trigger-static-tw .swap-trigger-cleanup
+            .swap-trigger-static-us .swap-trigger-static-tw .swap-trigger-cleanup \
+            .swap-trigger-stop-tw .swap-trigger-start-tw
           git config user.name "sub-merge"
           git config user.email "sub-merge@users.noreply.github.com"
           git commit -q -m "clear swap trigger [skip ci]"
           git push
 
-      # 9. 通知结果（无论成败都通知）
+      # 11. 通知结果（无论成败都通知）
       - name: Notify
         # 只在真正执行操作时通知（schedule 空跑不打扰）
         if: steps.trigger.outputs.TRIGGERED == '1'
