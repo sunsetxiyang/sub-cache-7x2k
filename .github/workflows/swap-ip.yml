@@ -200,6 +200,14 @@ jobs:
         run: |
           gcloud compute instances stop "$INSTANCE" --zone "$ZONE" --quiet
           echo "tw 已停止"
+          # 写停机标记：B 停机期间订阅只保留美西 A
+          mkdir -p B
+          echo "stopped $(date -u +%Y%m%d%H%M%S)" > B/.stopped
+          git config user.name "sub-merge"
+          git config user.email "sub-merge@users.noreply.github.com"
+          git add B/.stopped
+          git commit -q -m "mark tw stopped [skip ci]" || true
+          git push --quiet || true
 
       # 8. 启动 tw 机器（IP 会变，订阅自动同步）
       - name: Start tw instance
@@ -210,6 +218,12 @@ jobs:
         run: |
           gcloud compute instances start "$INSTANCE" --zone "$ZONE" --quiet
           echo "tw 已启动，等待分配 IP..."
+          # 清除停机标记（B 恢复后订阅重新包含 B）
+          git rm -q --ignore-unmatch B/.stopped || true
+          git config user.name "sub-merge"
+          git config user.email "sub-merge@users.noreply.github.com"
+          git commit -q -m "clear tw stopped [skip ci]" || true
+          git push --quiet || true
           sleep 15
           echo "tw 新 IP: $(gcloud compute instances describe "$INSTANCE" --zone "$ZONE" --format='value(networkInterfaces[0].accessConfigs[0].natIP)')"
 
